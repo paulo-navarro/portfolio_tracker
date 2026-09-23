@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useOnline } from '../../lib/offline.ts'
 import { seal, type Sealed } from '../../lib/seal.ts'
 import { ErrorBox } from '../ui.tsx'
 
@@ -26,6 +27,7 @@ export function KeyForm({
   const [passphrase, setPassphrase] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const online = useOnline()
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -73,8 +75,8 @@ export function KeyForm({
         <span aria-hidden>🔒</span> A chave é selada aqui no seu navegador. O servidor guarda só o selado e não consegue ler; só a coleta abre.
       </p>
       <div className="row">
-        <button className="btn btn-primary" disabled={busy}>
-          {busy ? 'selando…' : submitLabel}
+        <button className="btn btn-primary" disabled={busy || !online}>
+          {busy ? 'selando…' : online ? submitLabel : 'sem conexão'}
         </button>
         {onCancel && (
           <button type="button" className="btn btn-ghost" onClick={onCancel}>

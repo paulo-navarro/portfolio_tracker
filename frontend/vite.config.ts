@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // Em dev o browser só fala com o Vite; o Vite repassa /api para a api, então o
 // cookie de sessão é first-party como em prod. Sem changeOrigin: a api confere
@@ -21,9 +22,35 @@ function sealingPublicKey(): string {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      // injectManifest: o service worker é nosso (o push da fase 7 mora nele).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      registerType: 'autoUpdate',
+      // O manifest é um arquivo de verdade em public/, para editar à mão.
+      manifest: false,
+      injectManifest: {
+        // Só o app: nada de /api, e o mapa de fontes não precisa ser guardado.
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globIgnores: ['**/*.map'],
+      },
+      devOptions: { enabled: false },
+    }),
+  ],
   define: {
     __SEALING_PUBLIC_KEY__: JSON.stringify(sealingPublicKey()),
+    __BUILD_ID__: JSON.stringify(process.env.BUILD_ID ?? new Date().toISOString().slice(0, 16)),
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Os gráficos são a maior parte do app e só aparecem numa tela.
+        manualChunks: (id) => (id.includes('recharts') || id.includes('d3-') || id.includes('victory-vendor') ? 'charts' : undefined),
+      },
+    },
   },
   server: {
     port: 5175,

@@ -10,12 +10,24 @@
  * O alvo do Makefile apaga o que o teste criou (portfólio "E2E").
  */
 const puppeteer = require('puppeteer')
-const BASE = 'http://frontend:5175'
+// Por padrão o dev (Vite). BASE=http://cripto-prodtest roda contra o build de
+// produção servido pelo nginx, com a CSP e o service worker de verdade.
+const BASE = process.env.BASE || 'http://frontend:5175'
 const FAKE_KEY = 'e2eFakeApiKey' + 'x'.repeat(40) + 'Zq9w'
 const FAKE_KEY_2 = 'e2eOtherApiKey' + 'y'.repeat(40) + 'Km4t'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 ;(async () => {
-  const browser = await (globalThis.__browser = puppeteer.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'], executablePath: '/usr/bin/chromium-browser' }))
+  const browser = await (globalThis.__browser = puppeteer.launch({
+    args: [
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      // Service worker e clipboard só existem em contexto seguro; no teste, o
+      // http do container vale como seguro.
+      `--unsafely-treat-insecure-origin-as-secure=${BASE}`,
+      '--user-data-dir=/tmp/chrome-e2e',
+    ],
+    executablePath: '/usr/bin/chromium-browser',
+  }))
   const page = await browser.newPage()
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }])
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })

@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
-import { ago } from '../lib/format.ts'
+import { ago, dateTime } from '../lib/format.ts'
+import { useOnline } from '../lib/offline.ts'
 import { useMeta } from '../lib/queries.ts'
 import { Link } from '../lib/router.tsx'
 
 /** Barra de cima: marca (ou voltar), última coleta e Ajustes. */
 export function Shell({ back, title, children }: { back?: { to: string; label: string }; title?: string; children: ReactNode }) {
   const meta = useMeta()
+  const online = useOnline()
   const m = meta.data
   const collected = m?.lastRunAt ? `coleta ${ago(m.lastRunAt)}` : 'sem coleta ainda'
   const warn = m && (!m.workerAlive || m.lastError)
@@ -39,6 +41,11 @@ export function Shell({ back, title, children }: { back?: { to: string; label: s
           </Link>
         </div>
       </header>
+      {!online && (
+        <div className="offline-bar" role="status">
+          <span aria-hidden>⚡</span> Sem conexão. Mostrando o último dado{m?.lastRunAt ? ` (coleta de ${dateTime(m.lastRunAt)})` : ''}; nada pode ser alterado agora.
+        </div>
+      )}
       <main className="content">{children}</main>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { useOnline } from '../../lib/offline.ts'
 import { useHoldings, useSaveHoldings } from '../../lib/queries.ts'
 import { ErrorBox, Spinner } from '../ui.tsx'
 
@@ -19,6 +20,7 @@ function normalizeAmount(raw: string): string {
 export function HoldingsEditor({ portfolioId, accountId, readOnly }: { portfolioId: string; accountId: string; readOnly: boolean }) {
   const holdings = useHoldings(accountId)
   const save = useSaveHoldings(portfolioId, accountId)
+  const online = useOnline()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -97,8 +99,8 @@ export function HoldingsEditor({ portfolioId, accountId, readOnly }: { portfolio
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows([...rows, { ticker: '', amount: '', note: '' }])}>
           + ativo
         </button>
-        <button className="btn btn-primary btn-sm" disabled={save.isPending}>
-          {save.isPending ? 'salvando…' : 'salvar posições'}
+        <button className="btn btn-primary btn-sm" disabled={save.isPending || !online}>
+          {save.isPending ? 'salvando…' : online ? 'salvar posições' : 'sem conexão'}
         </button>
         {saved && <span className="muted saved">salvo; o total atualiza em segundos</span>}
       </div>

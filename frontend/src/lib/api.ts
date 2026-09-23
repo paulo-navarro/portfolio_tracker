@@ -11,6 +11,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // Offline, só leitura: nada de fila de escrita, muito menos de credencial.
+  if (method !== 'GET' && !navigator.onLine) {
+    throw new ApiError(0, 'sem conexão: offline dá para ver o último dado, não para mudar nada.')
+  }
   let res: Response
   try {
     res = await fetch(path, {

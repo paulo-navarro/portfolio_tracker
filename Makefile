@@ -8,7 +8,16 @@ include ./make_cmd/cli.mk
 NODE_IMAGE = node:26-alpine
 AS_ME      = --user $$(id -u):$$(id -g) -e npm_config_cache=/tmp/.npm
 
-.PHONY: dev dev-detached prod prod-detached down logs ps build env keys migrate collect seal-account market-live demo demo-clear e2e shots \
+# Produção: VPS com nginx de borda e certbot, como os outros apps de lá.
+VPS        = root@76.13.172.71
+VPS_PATH   = /root/cripto
+DOMAIN     = cripto.paulonavarro.com
+PUBLIC_URL = https://$(DOMAIN)
+TUNNEL_PORT ?= 15434
+
+.PHONY: dev dev-detached prod prod-detached down logs ps build env keys migrate collect seal-account market-live demo demo-clear e2e shots pwa-check \
+        deploy vps-shell prod-logs prod-ps prod-restart prod-collect prod-db-shell prod-db-backup \
+        prod-db-tunnel prod-cert prod-cert-status prod-key \
         smoke typecheck backend-add frontend-add db-shell db-backup check-keys check-prod
 
 # O compose interpola as variáveis de todos os perfis, inclusive o prod. O
@@ -104,6 +113,10 @@ e2e: ## Contas pela tela, de ponta a ponta, num Chrome headless (precisa do dev 
 	docker compose --profile dev exec -T db sh -c 'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB" -q' < e2e/cleanup.sql; \
 	exit $$status
 
+pwa-check: ## Instalação, cache e offline, contra o build de produção (BASE=http://cripto-prodtest)
+	docker run --rm --network cripto_default -e BASE=$(or $(BASE),http://cripto-prodtest) \
+		-v $(CURDIR)/e2e:/usr/src/app/e2e:ro $(PUPPETEER_IMAGE) node e2e/pwa.js
+
 shots: ## Capturas de todas as telas em e2e/out/ (SCHEME=light|dark; precisa do make demo)
 	docker run --rm --network cripto_default -e SCHEME=$(or $(SCHEME),dark) -v $(CURDIR)/e2e:/usr/src/app/e2e:ro \
 		-v $(CURDIR)/e2e/out:/out $(PUPPETEER_IMAGE) node e2e/shots.js
@@ -142,3 +155,58 @@ db-backup: ## Dump do banco de dev para backups/
 	@f=backups/cripto-dev-$$(date +%Y%m%d-%H%M).sql.gz; \
 	docker compose --profile dev exec -T db sh -c 'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"' | gzip > $$f; \
 	echo "$(GREEN)$$f  ($$(du -h $$f | cut -f1))$(NC)"
+
+# ── Produção (VPS) ───────────────────────────────────────────
+
+deploy: ## Publica em https://cripto.paulonavarro.com (push + pull + rebuild na VPS)
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "$(YELLOW)Working tree sujo — commite antes de publicar:$(NC)"; git status --short; exit 1; fi
+	@echo "$(BLUE)Enviando para o GitHub...$(NC)"
+	git push origin main
+	@echo "$(BLUE)Rebuild na VPS...$(NC)"
+	ssh $(VPS) 'cd $(VPS_PATH) && git pull origin main && docker compose --profile prod up -d --build'
+	@echo "$(GREEN)No ar: $(PUBLIC_URL)$(NC)"
+
+vps-shell: ## Shell na VPS, já na pasta do projeto
+	ssh -t $(VPS) 'cd $(VPS_PATH) && exec bash -l'
+
+prod-logs: ## Acompanha os logs de produção na VPS
+	ssh $(VPS) 'cd $(VPS_PATH) && docker compose --profile prod logs -f --tail 50'
+
+prod-ps: ## Status dos containers de produção na VPS
+	ssh $(VPS) 'cd $(VPS_PATH) && docker compose --profile prod ps'
+
+prod-restart: ## Reinicia o stack de produção na VPS (sem rebuild)
+	ssh $(VPS) 'cd $(VPS_PATH) && docker compose --profile prod restart'
+
+prod-collect: ## Força uma coleta na produção
+	ssh $(VPS) 'cd $(VPS_PATH) && docker compose --profile prod exec -T db-prod sh -c '"'"'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB" -qc "notify collect_now"'"'"''
+
+prod-db-shell: ## psql no banco de produção, na VPS
+	ssh -t $(VPS) 'cd $(VPS_PATH) && docker compose --profile prod exec db-prod sh -c '"'"'psql -U "$$POSTGRES_USER" "$$POSTGRES_DB"'"'"''
+
+prod-db-backup: ## Traz um dump da produção para backups/ (rode antes de mexer no banco)
+	@mkdir -p backups
+	@f=backups/cripto-prod-$$(date +%Y%m%d-%H%M).sql.gz; \
+	ssh $(VPS) 'cd $(VPS_PATH) && docker compose --profile prod exec -T db-prod sh -c '"'"'pg_dump -U "$$POSTGRES_USER" "$$POSTGRES_DB"'"'"'' | gzip > $$f; \
+	if [ ! -s $$f ]; then echo "$(YELLOW)dump veio vazio — nada foi salvo$(NC)"; rm -f $$f; exit 1; fi; \
+	echo "$(GREEN)$$f  ($$(du -h $$f | cut -f1))$(NC)"
+
+# O db-prod não publica porta nem na VPS: o cliente gráfico entra por um túnel
+# ssh. O IP do container muda a cada deploy, então é perguntado na hora.
+prod-db-tunnel: ## Túnel ssh até o banco de produção em 127.0.0.1:$(TUNNEL_PORT) (Ctrl-C fecha)
+	@ip=$$(ssh $(VPS) "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cripto-db-prod"); \
+	echo "$(BLUE)127.0.0.1:$(TUNNEL_PORT) → $$ip:5432 (usuário e senha do .env da VPS)$(NC)"; \
+	ssh -N -L $(TUNNEL_PORT):$$ip:5432 $(VPS)
+
+prod-cert: ## Emite o certificado do domínio na VPS (primeira instalação)
+	ssh $(VPS) 'mkdir -p /var/www/certbot && certbot --nginx -d $(DOMAIN) --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring'
+
+prod-cert-status: ## Validade do certificado e teste de renovação
+	ssh $(VPS) 'certbot certificates --cert-name $(DOMAIN) && certbot renew --cert-name $(DOMAIN) --dry-run'
+
+prod-key: ## Manda a chave privada de selagem de produção para a VPS (uma vez)
+	@if [ ! -f secrets/sealing.prod.key ]; then echo "$(YELLOW)secrets/sealing.prod.key não existe — rode 'make keys'.$(NC)"; exit 1; fi
+	scp secrets/sealing.prod.key $(VPS):$(VPS_PATH)/secrets/sealing.prod.key
+	ssh $(VPS) 'chmod 600 $(VPS_PATH)/secrets/sealing.prod.key && chown 1000:1000 $(VPS_PATH)/secrets/sealing.prod.key'
+	@echo "$(GREEN)Chave no lugar. Guarde uma cópia fora daqui e da VPS.$(NC)"

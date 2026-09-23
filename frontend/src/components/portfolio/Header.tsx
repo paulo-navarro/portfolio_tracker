@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Summary } from '../../lib/api.ts'
 import { brl, brlCompact, dateTime, monthYear, multiple, parseBrl, signedPct, trend, usd } from '../../lib/format.ts'
+import { useOnline } from '../../lib/offline.ts'
 import { useUpdatePortfolio } from '../../lib/queries.ts'
 import { Delta, ErrorBox, Notice } from '../ui.tsx'
 
@@ -54,7 +55,8 @@ function Invested({ s }: { s: Summary }) {
   const [value, setValue] = useState('')
   const [invalid, setInvalid] = useState(false)
   const update = useUpdatePortfolio(s.id)
-  const owner = s.role === 'owner'
+  const online = useOnline()
+  const owner = s.role === 'owner' && online
 
   function start() {
     setValue(s.investedBrl ? brl(s.investedBrl).replace('R$ ', '') : '')

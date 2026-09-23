@@ -199,6 +199,18 @@ h2 {
   background: var(--surface-2);
 }
 
+.offline-bar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--warn) 16%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+}
+
 .content {
   max-width: 1240px;
   margin: 0 auto;

@@ -202,7 +202,7 @@ services:
       DEV_LOGIN: ${DEV_LOGIN_PROD:-false}
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
       # 1 = só o nginx do container (make prod local); 2 com o nginx de borda na VPS.
-      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-2}
       HIDE_BELOW_USD: ${HIDE_BELOW_USD:-}
       EGRESS_IP: ${EGRESS_IP:-}
     expose:

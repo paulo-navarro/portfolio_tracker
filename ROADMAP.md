@@ -27,7 +27,7 @@ Cada fase termina em algo que roda e não depende de fase posterior.
 | 3 ✅ | [Login e API](roadmap/phase_03.md) | entro com o Google e a API devolve os meus portfólios |
 | 4 ✅ | [Telas](roadmap/phase_04.md) | abro no celular e vejo a planilha, só que bonita |
 | 5 ✅ | [Contas pela tela](roadmap/phase_05.md) | cadastro uma chave pela tela e ela vira `ativa` |
-| 6 | [PWA e produção](roadmap/phase_06.md) | instalado no celular, no ar em https |
+| 6 ⏳ | [PWA e produção](roadmap/phase_06.md) | instalado no celular, no ar em https |
 | 7 | [Alertas](roadmap/phase_07.md) | o celular avisa, com o app fechado, quando algo cai ou bate ATH |
 | — | [Depois](roadmap/later.md) | ideias sem data |
 

@@ -2,6 +2,7 @@
  * Tudo que a tela lê e escreve, em TanStack Query. A coleta roda a cada 15
  * minutos: reler a cada 5 é o bastante para o "há N min" nunca mentir muito.
  */
+import { clearPersistedCache } from './persist.ts'
 import { navigate } from './router.tsx'
 import type { Sealed } from './seal.ts'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -123,9 +124,10 @@ export function useArchivePortfolio(id: string) {
   })
 }
 
-/** Sair limpa todo o cache e volta para a tela de entrar. */
+/** Sair limpa todo o cache, inclusive o que ficou no aparelho. */
 function signedOut(qc: ReturnType<typeof useQueryClient>) {
   qc.clear()
+  void clearPersistedCache()
   qc.setQueryData(keys.me, null)
   navigate('/', true)
 }

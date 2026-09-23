@@ -84,11 +84,30 @@ A chave precisa ser **só leitura**. Qualquer outra permissão e ela é recusada
 apagada na hora; se ganhar permissão depois, na corretora, é bloqueada na coleta
 seguinte.
 
+## Produção
+
+Vai para a VPS `76.13.172.71`, atrás do nginx de borda com certificado, em
+**https://cripto.paulonavarro.com**. O container publica só em loopback
+(`127.0.0.1:8084`).
+
+```bash
+make deploy          # push + pull + rebuild na VPS (recusa working tree sujo)
+make prod-logs       # logs de lá
+make prod-db-backup  # dump da produção para backups/
+make prod-key        # manda a chave de selagem de produção (uma vez)
+```
+
+A primeira instalação está em [roadmap/phase_06.md](roadmap/phase_06.md). O
+`.env` de produção vive só na VPS, a partir de `.env.prod.example`: o migrate
+recusa senha fraca e a api recusa subir sem Google, sem `ALLOWED_EMAILS` ou com
+o login de dev ligado.
+
 ## Testes
 
 ```bash
 make smoke        # banco, permissões, paridade com a planilha, worker e api
 make e2e          # contas pela tela, num Chrome headless (Docker)
+make pwa-check    # instalação, cache e offline, contra o build de produção
 make shots        # capturas de todas as telas em e2e/out/ (precisa do make demo)
 ```
 

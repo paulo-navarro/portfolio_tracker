@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import { App } from './App.tsx'
 import { ApiError } from './lib/api.ts'
+import { setupPersistence } from './lib/persist.ts'
 import { keys } from './lib/queries.ts'
 import './styles.css'
 
@@ -10,6 +12,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60_000,
+      // Guardado no IndexedDB por até 7 dias: é o que a tela mostra offline.
+      gcTime: 7 * 24 * 60 * 60 * 1000,
       // 4xx não melhora tentando de novo.
       retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 2,
     },
@@ -24,6 +28,12 @@ queryClient.getQueryCache().subscribe((event) => {
     queryClient.setQueryData(keys.me, null)
   }
 })
+
+// Guarda o último dado de cada tela para abrir offline.
+setupPersistence(queryClient)
+
+// Versão nova assume sozinha na próxima abertura.
+registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

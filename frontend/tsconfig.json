@@ -12,7 +12,7 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     // TS 6+ não carrega mais @types/* sozinho.
-    "types": ["vite/client", "node"]
+    "types": ["vite/client", "node", "vite-plugin-pwa/client"]
   },
   "include": ["src", "vite.config.ts"]
 }
