@@ -1,0 +1,20 @@
+{
+  "_comment": "Formato de GET /api/v5/fiat/{deposit,withdrawal}-order-history visto numa conta real em 22/09/2026. Ids e valores fictícios.",
+  "deposits": {
+    "code": "0",
+    "msg": "",
+    "data": [
+      { "amt": "100", "cTime": "1744588982000", "ccy": "BRL", "clientId": "", "fee": "0", "ordId": "O1", "paymentAcctId": "1", "paymentMethod": "PIX", "state": "completed", "uTime": "1744588982000" },
+      { "amt": "3000", "cTime": "1734900000000", "ccy": "BRL", "clientId": "", "fee": "0", "ordId": "O2", "paymentAcctId": "1", "paymentMethod": "PIX", "state": "completed", "uTime": "1734900000000" },
+      { "amt": "500", "cTime": "1740000000000", "ccy": "BRL", "clientId": "", "fee": "0", "ordId": "O3", "paymentAcctId": "1", "paymentMethod": "PIX", "state": "canceled", "uTime": "1740000000000" }
+    ]
+  },
+  "withdrawals": {
+    "code": "0",
+    "msg": "",
+    "data": [
+      { "amt": "200", "cTime": "1745000000000", "ccy": "BRL", "clientId": "", "fee": "2", "ordId": "OW1", "paymentAcctId": "1", "paymentMethod": "PIX", "state": "completed", "uTime": "1745000000000" },
+      { "amt": "50", "cTime": "1746000000000", "ccy": "BRL", "clientId": "", "fee": "0", "ordId": "OW2", "paymentAcctId": "1", "paymentMethod": "PIX", "state": "pending", "uTime": "1746000000000" }
+    ]
+  }
+}

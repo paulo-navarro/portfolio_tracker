@@ -1,0 +1,265 @@
+# Um compose, dois perfis. Só o frontend publica porta: banco, api e worker
+# ficam na rede do compose, igual à produção.
+#
+# Três identidades no banco, cada uma com a sua URL:
+#   migrate → dono (POSTGRES_USER), roda uma vez e sai
+#   api     → app_api, que não consegue ler as credenciais das corretoras
+#   worker  → app_worker, o único que lê, e o único que monta a chave privada
+
+# Nome fixo: sem ele, volume e rede herdam o nome da pasta.
+name: cripto
+
+x-db-env: &db-env
+  POSTGRES_USER: ${POSTGRES_USER:-cripto}
+  POSTGRES_DB: ${POSTGRES_DB:-cripto}
+
+services:
+  # ── Dev ────────────────────────────────────────────
+  db:
+    profiles: [dev]
+    image: postgres:18-alpine
+    container_name: cripto-db
+    environment:
+      <<: *db-env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cripto}
+    volumes:
+      # Postgres 18 guarda em /var/lib/postgresql/18/docker. Montar em
+      # .../data, como nos outros projetos, perde o banco ao recriar o container.
+      - cripto-db-dev:/var/lib/postgresql
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    profiles: [dev]
+    container_name: cripto-migrate
+    build:
+      context: ./backend
+      target: dev
+    command: ["npx", "tsx", "src/migrate.ts"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-cripto}:${POSTGRES_PASSWORD:-cripto}@db:5432/${POSTGRES_DB:-cripto}
+      APP_API_PASSWORD: ${APP_API_PASSWORD:-criptoapidev}
+      APP_WORKER_PASSWORD: ${APP_WORKER_PASSWORD:-criptoworkerdev}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    profiles: [dev]
+    container_name: cripto-api
+    build:
+      context: ./backend
+      target: dev
+    command: ["npx", "tsx", "watch", "src/api/main.ts"]
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgres://app_api:${APP_API_PASSWORD:-criptoapidev}@db:5432/${POSTGRES_DB:-cripto}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: http://localhost:${CRIPTO_DEV_PORT:-5175}/api/auth/google/callback
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      DEV_LOGIN: ${DEV_LOGIN:-true}
+      HIDE_BELOW_USD: ${HIDE_BELOW_USD:-}
+      EGRESS_IP: ${EGRESS_IP:-}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    expose:
+      - "3001"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    profiles: [dev]
+    container_name: cripto-worker
+    build:
+      context: ./backend
+      target: dev
+    command: ["npx", "tsx", "watch", "src/worker/main.ts"]
+    environment:
+      DATABASE_URL: postgres://app_worker:${APP_WORKER_PASSWORD:-criptoworkerdev}@db:5432/${POSTGRES_DB:-cripto}
+      COLLECT_INTERVAL_MIN: ${COLLECT_INTERVAL_MIN:-15}
+      STABLECOINS: ${STABLECOINS:-}
+      SEALING_PRIVATE_KEY_FILE: /run/secrets/sealing.key
+      SEALING_PUBLIC_KEY_FILE: /keys/sealing.pub
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./secrets/sealing.dev.key:/run/secrets/sealing.key:ro
+      - ./keys/sealing.dev.pub:/keys/sealing.pub:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    profiles: [dev]
+    container_name: cripto-frontend
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      API_PROXY_TARGET: http://api:3001
+      SEALING_PUBLIC_KEY_FILE: /keys/sealing.pub
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./keys/sealing.dev.pub:/keys/sealing.pub:ro
+    ports:
+      - "${CRIPTO_DEV_PORT:-5175}:5175"
+    depends_on:
+      - api
+
+  # Ferramentas de dev: os smoke scripts (`make smoke`) e o cadastro de conta
+  # por script (`make seal-account`). Não sobe com o `make dev`: cada alvo roda
+  # um container descartável. Nunca existe em prod.
+  #
+  # Conecta como dono para montar fixture numa transação (e desfazer no fim) e
+  # como app_api para fazer o que a api faz. Não monta a chave privada: o que
+  # abre credencial nos smokes usa um par de chaves descartável.
+  tools:
+    profiles: [tools]
+    build:
+      context: ./backend
+      target: dev
+    command: ["sh", "-c", "for f in scripts/*-smoke.ts; do echo; echo \"▶ $$f\"; npx tsx \"$$f\" || exit 1; done"]
+    environment:
+      OWNER_DATABASE_URL: postgres://${POSTGRES_USER:-cripto}:${POSTGRES_PASSWORD:-cripto}@db:5432/${POSTGRES_DB:-cripto}
+      API_DATABASE_URL: postgres://app_api:${APP_API_PASSWORD:-criptoapidev}@db:5432/${POSTGRES_DB:-cripto}
+      API_URL: http://api:3001
+      SEALING_PUBLIC_KEY_FILE: /keys/sealing.pub
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./keys/sealing.dev.pub:/keys/sealing.pub:ro
+
+  # ── Prod ───────────────────────────────────────────
+  # O frontend-prod (nginx) é a única porta publicada, e só em loopback.
+  #
+  # Sem `:?` nas senhas: o compose interpola até os serviços de perfis
+  # inativos, e um `:?` aqui derrubaria o `make dev`. Quem barra senha fraca em
+  # prod (do dono e dos roles) é o migrate, antes de api e worker subirem.
+  db-prod:
+    profiles: [prod]
+    image: postgres:18-alpine
+    container_name: cripto-db-prod
+    environment:
+      <<: *db-env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - cripto-db-prod:/var/lib/postgresql
+    expose:
+      - "5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  migrate-prod:
+    profiles: [prod]
+    container_name: cripto-migrate-prod
+    build:
+      context: ./backend
+      target: prod
+    command: ["node", "dist/migrate.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-cripto}:${POSTGRES_PASSWORD:-}@db-prod:5432/${POSTGRES_DB:-cripto}
+      APP_API_PASSWORD: ${APP_API_PASSWORD:-}
+      APP_WORKER_PASSWORD: ${APP_WORKER_PASSWORD:-}
+    depends_on:
+      db-prod:
+        condition: service_healthy
+    restart: "no"
+
+  api-prod:
+    profiles: [prod]
+    container_name: cripto-api-prod
+    build:
+      context: ./backend
+      target: prod
+    command: ["node", "dist/api/main.js"]
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://app_api:${APP_API_PASSWORD:-}@db-prod:5432/${POSTGRES_DB:-cripto}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${CLIENT_ORIGIN:-}/api/auth/google/callback
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      # Sem default: o assertApiConfig recusa DEV_LOGIN=true em prod.
+      DEV_LOGIN: ${DEV_LOGIN_PROD:-false}
+      SECURE_COOKIES: ${SECURE_COOKIES:-true}
+      # 1 = só o nginx do container (make prod local); 2 com o nginx de borda na VPS.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      HIDE_BELOW_USD: ${HIDE_BELOW_USD:-}
+      EGRESS_IP: ${EGRESS_IP:-}
+    expose:
+      - "3001"
+    depends_on:
+      migrate-prod:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker-prod:
+    profiles: [prod]
+    container_name: cripto-worker-prod
+    build:
+      context: ./backend
+      target: prod
+    command: ["node", "dist/worker/main.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://app_worker:${APP_WORKER_PASSWORD:-}@db-prod:5432/${POSTGRES_DB:-cripto}
+      COLLECT_INTERVAL_MIN: ${COLLECT_INTERVAL_MIN:-15}
+      STABLECOINS: ${STABLECOINS:-}
+      SEALING_PRIVATE_KEY_FILE: /run/secrets/sealing.key
+      SEALING_PUBLIC_KEY_FILE: /keys/sealing.pub
+    volumes:
+      # A imagem de prod roda como `node` (uid 1000): o arquivo precisa ser
+      # legível por ele. Na VPS: chown 1000:1000 secrets/sealing.prod.key
+      - ./secrets/sealing.prod.key:/run/secrets/sealing.key:ro
+      - ./keys/sealing.prod.pub:/keys/sealing.pub:ro
+    depends_on:
+      migrate-prod:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  frontend-prod:
+    profiles: [prod]
+    container_name: cripto-frontend-prod
+    build:
+      context: ./frontend
+      target: prod
+      # A chave pública entra no build (nunca buscada em runtime).
+      additional_contexts:
+        keys: ./keys
+    ports:
+      # Loopback por default: numa VPS o nginx de borda é a única entrada.
+      - "${CRIPTO_BIND:-127.0.0.1}:${CRIPTO_PORT:-8084}:80"
+    depends_on:
+      api-prod:
+        condition: service_healthy
+    restart: unless-stopped
+
+# O histórico de saldos mora aqui. `docker compose down -v` apaga tudo.
+volumes:
+  cripto-db-dev:
+  cripto-db-prod:

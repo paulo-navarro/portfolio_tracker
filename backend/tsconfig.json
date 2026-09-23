@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "outDir": "dist",
+    "strict": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    // Imports com .ts: o tsx e o node rodam direto, e o tsc troca por .js no build.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    // Só sintaxe que o node consegue apagar: scripts/keys.ts roda sem tsx.
+    "erasableSyntaxOnly": true,
+    // TS 6+ não carrega mais @types/* sozinho.
+    "types": ["node"]
+  },
+  "include": ["src", "scripts"]
+}

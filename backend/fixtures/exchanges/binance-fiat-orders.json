@@ -1,0 +1,25 @@
+{
+  "_comment": "Formato de GET /sapi/v1/fiat/orders visto numa conta real em 22/09/2026 (campos e valores de status). Números de pedido e valores são fictícios.",
+  "deposits": {
+    "code": "000000",
+    "message": "success",
+    "data": [
+      { "orderNo": "D1", "fiatCurrency": "BRL", "indicatedAmount": "100", "amount": "100", "totalFee": "0", "method": "Bank Transfer (PIX)", "status": "Successful", "createTime": 1776808956000, "updateTime": 1776809032000 },
+      { "orderNo": "D2", "fiatCurrency": "BRL", "indicatedAmount": "1500.50", "amount": "1500.50", "totalFee": "0", "method": "Bank Transfer (PIX)", "status": "Successful", "createTime": 1621866000000, "updateTime": 1621866100000 },
+      { "orderNo": "D3", "fiatCurrency": "BRL", "indicatedAmount": "200", "amount": "200", "totalFee": "0", "method": "Bank Transfer (PIX)", "status": "Expired", "createTime": 1700000000000, "updateTime": 1700000100000 },
+      { "orderNo": "D4", "fiatCurrency": "EUR", "indicatedAmount": "50", "amount": "49", "totalFee": "1", "method": "SEPA", "status": "Successful", "createTime": 1710000000000, "updateTime": 1710000100000 }
+    ],
+    "total": 4,
+    "success": true
+  },
+  "withdrawals": {
+    "code": "000000",
+    "message": "success",
+    "data": [
+      { "orderNo": "W1", "fiatCurrency": "BRL", "indicatedAmount": "300", "amount": "299", "totalFee": "1", "method": "Bank Transfer (PIX)", "status": "Successful", "createTime": 1750000000000, "updateTime": 1750000100000 },
+      { "orderNo": "W2", "fiatCurrency": "BRL", "indicatedAmount": "999", "amount": "999", "totalFee": "0", "method": "Bank Transfer (PIX)", "status": "Failed", "createTime": 1751000000000, "updateTime": 1751000100000 }
+    ],
+    "total": 2,
+    "success": true
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "code": "0",
+  "msg": "",
+  "data": [
+    {
+      "acctLv": "1",
+      "autoLoan": false,
+      "ctIsoMode": "automatic",
+      "greeksType": "PA",
+      "ip": "76.13.172.71",
+      "kycLv": "2",
+      "label": "cripto",
+      "level": "Lv1",
+      "levelTmp": "",
+      "liquidationGear": "-1",
+      "mainUid": "44705892343619584",
+      "mgnIsoMode": "automatic",
+      "opAuth": "0",
+      "perm": "read_only",
+      "posMode": "net_mode",
+      "roleType": "0",
+      "spotRoleType": "0",
+      "traderInsts": [],
+      "type": "0",
+      "uid": "44705892343619584"
+    }
+  ]
+}

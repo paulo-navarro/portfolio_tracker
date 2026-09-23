@@ -1,0 +1,88 @@
+{
+  "trading": {
+    "code": "0",
+    "data": [
+      {
+        "totalEq": "100",
+        "details": [
+          {
+            "ccy": "USDT",
+            "eq": "7.5",
+            "cashBal": "7.5",
+            "availBal": "7.5"
+          },
+          {
+            "ccy": "OKB",
+            "eq": "0",
+            "cashBal": "0"
+          }
+        ]
+      }
+    ]
+  },
+  "funding": {
+    "code": "0",
+    "data": [
+      {
+        "ccy": "SUI",
+        "bal": "40",
+        "availBal": "40",
+        "frozenBal": "0"
+      },
+      {
+        "ccy": "SUI",
+        "bal": "12.5",
+        "availBal": "12.5",
+        "frozenBal": "0"
+      }
+    ]
+  },
+  "savings": {
+    "code": "0",
+    "data": [
+      {
+        "ccy": "ENA",
+        "amt": "500",
+        "earnings": "1.2",
+        "rate": "0.01",
+        "loanAmt": "0",
+        "pendingAmt": "0"
+      }
+    ]
+  },
+  "staking": {
+    "code": "0",
+    "data": [
+      {
+        "ordId": "1",
+        "state": "1",
+        "protocol": "x",
+        "investData": [
+          {
+            "ccy": "APT",
+            "amt": "20"
+          }
+        ],
+        "earningData": [
+          {
+            "ccy": "APT",
+            "earnings": "0.5"
+          }
+        ]
+      },
+      {
+        "ordId": "2",
+        "state": "1",
+        "protocol": "y",
+        "investData": [
+          {
+            "ccy": "APT",
+            "amt": "5.25"
+          }
+        ],
+        "earningData": []
+      }
+    ]
+  },
+  "_comment": "Respostas de privateGetAccountBalance, privateGetAssetBalances, savings e staking, no formato da documentação. Quantidades fictícias."
+}
